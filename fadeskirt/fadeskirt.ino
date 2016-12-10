@@ -1,8 +1,12 @@
 #include <Wire.h>
 #include <Adafruit_Sensor.h>
+#include <Adafruit_LSM303.h>
+#include <Adafruit_LSM303_U.h>
 #include <Adafruit_NeoPixel.h>
 
+
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(11, 6, NEO_GRB + NEO_KHZ800);
+Adafruit_LSM303_Accel_Unified accel = Adafruit_LSM303_Accel_Unified(54321);
 
 uint8_t colours[][3] = {
   {200, 0, 200},
@@ -21,21 +25,66 @@ uint8_t colours[][3] = {
 #define FAVCOLOURS sizeof(colours) / 3
 
 void setup() {
+
+    Serial.begin(9600);
+  
+  // Try to initialise and warn if we couldn't detect the chip
+  if (!accel.begin())
+  {
+    Serial.println("Oops ... unable to initialize the LSM303. Check your wiring!");
+    while (1);
+  }
+
+  
   strip.begin();
   strip.show();
 
 }
 
 void loop() {
-  randomizeFade();
+
+  /* Get a new sensor event */ 
+  sensors_event_t event; 
+  accel.getEvent(&event);
+  Serial.print("Accel X: "); Serial.print(event.acceleration.x); Serial.print(" ");
+  Serial.print("Y: "); Serial.print(event.acceleration.y);       Serial.print(" ");
+  Serial.print("Z: "); Serial.print(event.acceleration.z);     Serial.print(" ");
+
+  // Get the magnitude (length) of the 3 axis vector
+  // http://en.wikipedia.org/wiki/Euclidean_vector#Length
+  double storedVector = event.acceleration.x*event.acceleration.x;
+  storedVector += event.acceleration.y*event.acceleration.y;
+  storedVector += event.acceleration.z*event.acceleration.z;
+  storedVector = sqrt(storedVector);
+  Serial.print("Len: "); Serial.println(storedVector);
+  
+  // wait a bit
+  delay(100);
+  
+  // get new data!
+  accel.getEvent(&event);
+  double newVector = event.acceleration.x*event.acceleration.x;
+  newVector += event.acceleration.y*event.acceleration.y;
+  newVector += event.acceleration.z*event.acceleration.z;
+  newVector = sqrt(newVector);
+  Serial.print("New Len: "); Serial.println(newVector);
+
+  Serial.print("Difference: "); Serial.println(abs(newVector - storedVector));
+  
+  
+  if(abs(newVector - storedVector) > 3) {
+    randomizeFade(10);
+  } else if (abs(newVector - storedVector) < 1) {
+    randomizeFade(100);
+  } else {
+    randomizeFade(50);
+  }
 }
 
-void randomizeFade() {
+void randomizeFade(int wait) {
   int howmany = random(1, 6);
   int randomPixels[howmany];
   int colourChoices[howmany];
-  int wait = 50;
-  
   
   for(int i=0; i < howmany; i++) {
     randomPixels[i] = random(strip.numPixels());
@@ -77,49 +126,5 @@ void randomizeFade() {
     strip.show();
     delay(wait);
   }
-  
-//  // fade in in 5 steps
-//  for (uint16_t x=0; x < 5; x++) {
-//    // set each pixel
-//    for(int z=0; z<5; z++) {  
-//      int j = randomPixels[z][0];
-//      int c = randomPixels[z][1];
-//      int red = colours[c][0];
-//      int green = colours[c][1];
-//      int blue = colours[c][2];
-//
-//      Serial.println("-------------");
-//      Serial.println("Pixel "); Serial.println(j);
-//      Serial.println("red "); Serial.println(red);
-//      Serial.println("green "); Serial.println(green);
-//      Serial.println("blue "); Serial.println(blue);
-//      
-//      Serial.println("Setting pixel");
-////      int r = pixelRed * (x+1); r /= 5;
-////      int g = pixelGreen * (x+1); r /= 5;
-////      int b = pixelBlue * (x+1); r /= 5;
-//      strip.setPixelColor(j, strip.Color(red, green, blue));
-//    }
-//    strip.show();
-//    delay(1000);
-//  }
-
-//  // for each pixel
-//  for(uint16_t i=0; i<5; i++) {  
-//    int j = randomPixels[i];
-//    strip.setPixelColor(j[0], strip.Color(j[1], j[2], j[3]));
-//  }
-//
-//  strip.show();
-//  delay(1000);
-
-////   reset each pixel
-//  for(uint16_t w=0; w<5; w++) {
-//    int j = randomPixels[w];
-//    strip.setPixelColor(j, strip.Color(0,0,0));
-//  }
-//
-//  strip.show();
-//  delay(1000);
 }
 
